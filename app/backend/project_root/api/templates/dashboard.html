@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Energy Consumption Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .chart-container { width: 80%; margin: 20px auto; }
+        .controls { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 5px; }
+        button { padding: 8px 15px; margin-right: 10px; cursor: pointer; }
+        input, select { padding: 8px; margin-right: 10px; }
+        .login-form { width: 300px; margin: 50px auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div id="login-form" class="login-form">
+        <h2>Login</h2>
+        <div>
+            <input id="username" type="text" placeholder="Username" style="width: 100%; margin-bottom: 10px;">
+            <input id="password" type="password" placeholder="Password" style="width: 100%; margin-bottom: 10px;">
+            <button onclick="login()">Login</button>
+            <button onclick="showRegister()">Register</button>
+        </div>
+    </div>
+
+    <div id="register-form" class="login-form hidden">
+        <h2>Register</h2>
+        <div>
+            <input id="reg-username" type="text" placeholder="Username" style="width: 100%; margin-bottom: 10px;">
+            <input id="reg-password" type="password" placeholder="Password" style="width: 100%; margin-bottom: 10px;">
+            <button onclick="register()">Register</button>
+            <button onclick="showLogin()">Back to Login</button>
+        </div>
+    </div>
+
+    <div id="dashboard" class="hidden">
+        <h1>Energy Consumption Dashboard</h1>
+        <div class="controls">
+            <h3>Filters</h3>
+            <select id="consumer-id">
+                <option value="">All Consumers</option>
+            </select>
+            <select id="postcode">
+                <option value="">All Postcodes</option>
+            </select>
+            <input type="date" id="start-date" placeholder="Start Date">
+            <input type="date" id="end-date" placeholder="End Date">
+            <button onclick="loadData()">Apply Filters</button>
+            <button onclick="fetchConsumers()" style="margin-left:10px;">Fetch Consumers</button>
+            <button onclick="logout()" style="float: right;">Logout</button>
+        </div>
+
+        <div class="chart-container">
+            <h2>Daily Consumption</h2>
+            <canvas id="dailyChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <h2>Monthly Consumption</h2>
+            <canvas id="monthlyChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <h2>Yearly Consumption</h2>
+            <canvas id="yearlyChart"></canvas>
+        </div>
+    </div>
+
+    <!-- New Consumers Table Page -->
+    <div id="consumers-page" class="hidden">
+        <h1>Consumers List</h1>
+        <button onclick="showDashboard()" style="margin-bottom:10px;">Back to Dashboard</button>
+        <table id="consumers-table" border="1" cellpadding="8" style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr id="consumers-table-head"></tr>
+            </thead>
+            <tbody id="consumers-table-body"></tbody>
+        </table>
+    </div>
+    <script>
+        let token = null;
+        let dailyChart, monthlyChart, yearlyChart;
+        
+        // DOM Elements
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const dashboard = document.getElementById('dashboard');
+        const consumersPage = document.getElementById('consumers-page');
+        const consumersTableHead = document.getElementById('consumers-table-head');
+        const consumersTableBody = document.getElementById('consumers-table-body');
+        
+        // Show/hide forms
+        function showLogin() {
+            registerForm.classList.add('hidden');
+            loginForm.classList.remove('hidden');
+        }
+        
+        function showRegister() {
+            loginForm.classList.add('hidden');
+            registerForm.classList.remove('hidden');
+        }
+        
+        // Authentication functions
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            axios.post('/api/login/', { username, password })
+                .then(response => {
+                    token = response.data.access;
+                    localStorage.setItem('jwt_token', token); // Save token to localStorage
+                    loginForm.classList.add('hidden');
+                    dashboard.classList.remove('hidden');
+                    initializeDashboard();
+                })
+                .catch(error => {
+                    alert('Login failed: ' + error.response.data.detail);
+                });
+        }
+
+        function logout() {
+            token = null;
+            localStorage.removeItem('jwt_token'); // Remove token from localStorage
+            dashboard.classList.add('hidden');
+            loginForm.classList.remove('hidden');
+        }
+
+        // On page load, check for token in localStorage
+        window.onload = function() {
+            const savedToken = localStorage.getItem('jwt_token');
+            if (savedToken) {
+                token = savedToken;
+                loginForm.classList.add('hidden');
+                dashboard.classList.remove('hidden');
+                initializeDashboard();
+            }
+        }
+        
+        function register() {
+            const username = document.getElementById('reg-username').value;
+            const password = document.getElementById('reg-password').value;
+            
+            axios.post('/api/register/', { username, password })
+                .then(() => {
+                    alert('Registration successful! Please login.');
+                    showLogin();
+                })
+                .catch(error => {
+                    alert('Registration failed: ' + JSON.stringify(error.response.data));
+                });
+        }
+        
+        function logout() {
+            token = null;
+            dashboard.classList.add('hidden');
+            loginForm.classList.remove('hidden');
+        }
+        
+        // Dashboard functions
+        function initializeDashboard() {
+            loadConsumers();
+            loadPostcodes();
+            loadData();
+        }
+        
+        function loadConsumers() {
+            axios.get('/api/consumers/', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(response => {
+                const select = document.getElementById('consumer-id');
+                select.innerHTML = '<option value="">All Consumers</option>';
+                console.log('Consumer data:', response.data); // Debug log
+                response.data.forEach(consumer => {
+                    const option = document.createElement('option');
+                    option.value = consumer.Customer; // Changed from consumer_id to Customer
+                    option.textContent = `Consumer ${consumer.Customer}`;
+                    select.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading consumers:', error);
+            });
+        }
+        
+        function loadPostcodes() {
+            axios.get('/api/records/', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(response => {
+                console.log('Records data:', response.data); // Debug log
+                const postcodes = [...new Set(response.data.map(record => record.Postcode))]; // Changed from record.consumer.postcode
+                const select = document.getElementById('postcode');
+                select.innerHTML = '<option value="">All Postcodes</option>';
+                postcodes.forEach(postcode => {
+                    const option = document.createElement('option');
+                    option.value = postcode;
+                    option.textContent = postcode;
+                    select.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading postcodes:', error);
+            });
+        }
+        
+        function loadData() {
+            const consumerId = document.getElementById('consumer-id').value;
+            const postcode = document.getElementById('postcode').value;
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            
+            let url = '/api/records/';
+            const params = new URLSearchParams();
+            
+            if (consumerId) params.append('Customer', consumerId); // Changed from consumer_id
+            if (postcode) params.append('Postcode', postcode); // Changed from postcode
+            if (startDate) params.append('start_date', startDate);
+            if (endDate) params.append('end_date', endDate);
+            
+            if (params.toString()) url += `?${params.toString()}`;
+            
+            axios.get(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(response => {
+                console.log('Filtered data:', response.data); // Debug log
+                updateCharts(response.data);
+            })
+            .catch(error => {
+                console.error('Error loading data:', error);
+            });
+        }
+        
+        function updateCharts(data) {
+            // Process data for charts
+            const dailyData = processDailyData(data);
+            const monthlyData = processMonthlyData(data);
+            const yearlyData = processYearlyData(data);
+            
+            // Update or create charts
+            updateChart('dailyChart', 'Daily Consumption', dailyData.labels, dailyData.values);
+            updateChart('monthlyChart', 'Monthly Consumption', monthlyData.labels, monthlyData.values);
+            updateChart('yearlyChart', 'Yearly Consumption', yearlyData.labels, yearlyData.values);
+        }
+        
+        function processDailyData(data) {
+            // Group by date and sum consumption
+            const grouped = {};
+            data.forEach(record => {
+                const date = new Date(record.date).toLocaleDateString();
+                if (!grouped[date]) {
+                    grouped[date] = 0;
+                }
+                grouped[date] += record.consumption;
+            });
+            
+            const labels = Object.keys(grouped).sort();
+            const values = labels.map(date => grouped[date]);
+            
+            return { labels, values };
+        }
+        
+        function processMonthlyData(data) {
+            // Group by month-year and sum consumption
+            const grouped = {};
+            data.forEach(record => {
+                const date = new Date(record.date);
+                const monthYear = `${date.getMonth()+1}/${date.getFullYear()}`;
+                if (!grouped[monthYear]) {
+                    grouped[monthYear] = 0;
+                }
+                grouped[monthYear] += record.consumption;
+            });
+            
+            const labels = Object.keys(grouped).sort((a, b) => {
+                const [ma, ya] = a.split('/').map(Number);
+                const [mb, yb] = b.split('/').map(Number);
+                return ya - yb || ma - mb;
+            });
+            const values = labels.map(monthYear => grouped[monthYear]);
+            
+            return { labels, values };
+        }
+        
+        function processYearlyData(data) {
+            // Group by year and sum consumption
+            const grouped = {};
+            data.forEach(record => {
+                const year = new Date(record.date).getFullYear();
+                if (!grouped[year]) {
+                    grouped[year] = 0;
+                }
+                grouped[year] += record.consumption;
+            });
+            
+            const labels = Object.keys(grouped).sort();
+            const values = labels.map(year => grouped[year]);
+            
+            return { labels, values };
+        }
+        
+        function updateChart(canvasId, title, labels, data) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (canvasId === 'dailyChart' && dailyChart) dailyChart.destroy();
+            if (canvasId === 'monthlyChart' && monthlyChart) monthlyChart.destroy();
+            if (canvasId === 'yearlyChart' && yearlyChart) yearlyChart.destroy();
+            
+            // Create new chart
+            const newChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: title,
+                        data: data,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: title
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+            
+            // Save chart reference
+            if (canvasId === 'dailyChart') dailyChart = newChart;
+            if (canvasId === 'monthlyChart') monthlyChart = newChart;
+            if (canvasId === 'yearlyChart') yearlyChart = newChart;
+        }
+        
+        function showDashboard() {
+            consumersPage.classList.add('hidden');
+            dashboard.classList.remove('hidden');
+        }
+
+        function fetchConsumers() {
+            axios.get('/api/consumers/', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(response => {
+                // Hide dashboard, show consumers page
+                dashboard.classList.add('hidden');
+                consumersPage.classList.remove('hidden');
+                // Render table
+                renderConsumersTable(response.data);
+            })
+            .catch(error => {
+                if (error.response && error.response.data && error.response.data.code === "token_not_valid") {
+                    alert('Session expired or token invalid. Please log in again.');
+                    logout();
+                } else {
+                    alert('Error fetching consumers: ' + (error.response?.data?.detail || error.message));
+                }
+                console.error('Error fetching consumers:', error);
+            });
+        }
+
+        function renderConsumersTable(consumers) {
+            // Clear previous table
+            consumersTableHead.innerHTML = '';
+            consumersTableBody.innerHTML = '';
+            if (!consumers.length) {
+                consumersTableBody.innerHTML = '<tr><td colspan="100%">No consumers found.</td></tr>';
+                return;
+            }
+            // Get all unique keys for table headers
+            const keys = Object.keys(consumers[0]);
+            // Render table head
+            keys.forEach(key => {
+                const th = document.createElement('th');
+                th.textContent = key;
+                consumersTableHead.appendChild(th);
+            });
+            // Render table body
+            consumers.forEach(consumer => {
+                const tr = document.createElement('tr');
+                keys.forEach(key => {
+                    const td = document.createElement('td');
+                    td.textContent = consumer[key];
+                    tr.appendChild(td);
+                });
+                consumersTableBody.appendChild(tr);
+            });
+        }
+    </script>
+</body>
+</html>

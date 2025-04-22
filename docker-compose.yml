@@ -1,0 +1,35 @@
+services:
+  backend:
+    build:
+      context: ./app/backend/project_root
+      dockerfile: Dockerfile
+    container_name: django_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app/backend/project_root:/backend
+    working_dir: /backend
+    command: python manage.py runserver 0.0.0.0:8000
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./app/frontend
+      dockerfile: Dockerfile
+    container_name: react_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./app/frontend:/frontend
+    working_dir: /frontend
+    command: npm start
+    depends_on:
+      backend:
+        condition: service_healthy

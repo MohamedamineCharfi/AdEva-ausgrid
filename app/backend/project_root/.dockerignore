@@ -1,0 +1,21 @@
+# Ignore Python bytecode files
+__pycache__
+*.pyc
+*.pyo
+
+# Ignore virtual environments (if any)
+venv/
+
+# Ignore any development files that shouldn't be in the Docker image
+*.log
+*.md
+*.git
+*.gitignore
+
+# Ignore other temporary files
+*.bak
+*.swp
+
+# Ignore any local configuration files or directories
+*.env
+.env/
