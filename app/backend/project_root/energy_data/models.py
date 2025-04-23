@@ -1,5 +1,5 @@
 from django.contrib.auth.hashers import make_password, check_password
-from mongoengine import Document, IntField, StringField, DateField, FloatField
+from mongoengine import Document, IntField, StringField, DateTimeField, FloatField
 
 
 class Consumer(Document):
@@ -22,9 +22,11 @@ class EnergyRecord(Document):
     # MongoEngine handles _id automatically
     Customer = IntField()  # Just a regular field, not ForeignKey
     Postcode = IntField()
-    date = DateField()
+    date = DateTimeField()
     consumption = FloatField()
-    # Add other fields here as needed
+    is_holiday_or_weekend = IntField()
+    saison = IntField()
+    consumption_daily_normalized = FloatField()
 
     meta = {
         'collection': 'energy_records'  # Optional, specify collection name explicitly
@@ -32,8 +34,7 @@ class EnergyRecord(Document):
 
     @classmethod
     def get_collection(cls):
-        # MongoEngine handles connections automatically
-        return cls.objects  # MongoEngine query set
+        return cls._get_collection()
 
 class SuperUser(Document):
     meta = {"collection": "superusers"}  # optional, name of your MongoDB collection

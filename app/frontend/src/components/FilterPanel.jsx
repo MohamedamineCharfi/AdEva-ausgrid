@@ -1,10 +1,6 @@
 import React, { useState } from "react";
 import Select from "react-select";
-import {
-  UserGroupIcon,
-  MapPinIcon,
-  CalendarIcon,
-} from "@heroicons/react/24/outline";
+import { ChartBarIcon } from "@heroicons/react/24/solid";
 import { useTheme } from "../context/ThemeContext";
 
 export default function FilterPanel({
@@ -12,6 +8,7 @@ export default function FilterPanel({
   postcodes,
   onApply,
   onReset,
+  onPredict,
 }) {
   const { darkMode } = useTheme();
 
@@ -22,6 +19,7 @@ export default function FilterPanel({
   const [postcodeInput, setPostcodeInput] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [appliedFilter, setAppliedFilter] = useState(false); // state to track if filter is applied
 
   // build & sort options
   const consumerOptions = [
@@ -40,7 +38,7 @@ export default function FilterPanel({
       .map((id) => ({ value: String(id), label: `Postcode ${id}` })),
   ];
 
-  // handlers clear both value + input text
+  // handlers to clear both value + input text
   const handleConsumerChange = (sel) => {
     setConsumerId(sel?.value || "");
     setConsumerInput("");
@@ -50,8 +48,11 @@ export default function FilterPanel({
     setPostcodeInput("");
   };
 
-  const handleApply = () =>
+  const handleApply = () => {
     onApply({ consumerId, postcode, startDate, endDate });
+    setAppliedFilter(true); // mark the filter as applied
+  };
+
   const handleReset = () => {
     setConsumerId("");
     setPostcode("");
@@ -60,6 +61,7 @@ export default function FilterPanel({
     setStartDate("");
     setEndDate("");
     onReset();
+    setAppliedFilter(false); // reset filter applied state
   };
 
   // common react‑select style overrides for dark/light
@@ -101,9 +103,7 @@ export default function FilterPanel({
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
         {/* Consumer Select */}
         <div>
-          <label className="block text-sm font-medium mb-1">
-            Consumer
-          </label>
+          <label className="block text-sm font-medium mb-1">Consumer</label>
           <Select
             options={consumerOptions}
             isClearable
@@ -123,9 +123,7 @@ export default function FilterPanel({
 
         {/* Postcode Select */}
         <div>
-          <label className="block text-sm font-medium mb-1">
-            Postcode
-          </label>
+          <label className="block text-sm font-medium mb-1">Postcode</label>
           <Select
             options={postcodeOptions}
             isClearable
@@ -145,9 +143,7 @@ export default function FilterPanel({
 
         {/* Start Date */}
         <div>
-          <label className="block text-sm font-medium mb-1">
-            Start Date
-          </label>
+          <label className="block text-sm font-medium mb-1">Start Date</label>
           <input
             type="date"
             value={startDate}
@@ -158,9 +154,7 @@ export default function FilterPanel({
 
         {/* End Date */}
         <div>
-          <label className="block text-sm font-medium mb-1">
-            End Date
-          </label>
+          <label className="block text-sm font-medium mb-1">End Date</label>
           <input
             type="date"
             value={endDate}
@@ -170,13 +164,27 @@ export default function FilterPanel({
         </div>
       </div>
 
-      <div className="flex justify-end space-x-2">
+      <div className="flex justify-end space-x-2 items-center mt-4">
         <button
           onClick={handleReset}
           className="px-4 py-2 border rounded-lg hover:bg-gray-100"
         >
           RESET
         </button>
+
+        {appliedFilter &&
+          consumerId &&
+          consumerId !== "" &&
+          consumerId !== "All" && (
+            <button
+              onClick={onPredict}
+              className="inline-flex items-center px-5 py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-medium rounded-lg shadow-md transition-colors duration-200"
+            >
+              <ChartBarIcon className="h-5 w-5 mr-2" />
+              Predict
+            </button>
+          )}
+
         <button
           onClick={handleApply}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"

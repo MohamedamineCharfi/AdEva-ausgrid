@@ -76,32 +76,29 @@ class EnergyRecordListView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        collection = EnergyRecord.get_collection()
-        query = {}
-        
-        # Build MongoDB query
+        qs = EnergyRecord.objects   # a QuerySet
         customer = self.request.query_params.get('Customer')
         if customer:
-            query['Customer'] = int(customer)
-            
+            qs = qs.filter(Customer=int(customer))
+
         postcode = self.request.query_params.get('Postcode')
         if postcode:
-            query['Postcode'] = int(postcode)
-        
-        # Filter by Date range
-        start_date = self.request.query_params.get('start_date')
-        end_date = self.request.query_params.get('end_date')
+            qs = qs.filter(Postcode=int(postcode))
 
-        if start_date or end_date:
-            date_filter = {}
-            if start_date:
-                date_filter["$gte"] = datetime.fromisoformat(start_date)
-            if end_date:
-                date_filter["$lte"] = datetime.fromisoformat(end_date)
-            query['date'] = date_filter
-            
-        # Convert to MongoDB cursor and return as list
-        return list(collection.find(query))
+        start_date = self.request.query_params.get('start_date')
+        end_date   = self.request.query_params.get('end_date')
+        if start_date:
+            qs = qs.filter(date__gte=datetime.fromisoformat(start_date))
+        if end_date:
+            qs = qs.filter(date__lte=datetime.fromisoformat(end_date))
+
+        return qs   # QuerySet is iterable of Document instances
+
+    def list(self, request, *args, **kwargs):
+        objs = self.get_queryset()
+        # DRF’s Serializer will happily read attributes off each Document
+        serializer = self.get_serializer(objs, many=True)
+        return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

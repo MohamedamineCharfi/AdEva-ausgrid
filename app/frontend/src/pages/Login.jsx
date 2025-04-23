@@ -11,16 +11,9 @@ export default function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      // your auth.js does:
-      // const { data } = await API.post("/login/", { username, password })
-      // localStorage.setItem("jwt_token", data.access)
-      // localStorage.setItem("refresh_token", data.refresh)
       await login(username, password);
-
-      // on success, send them to the dashboard
       navigate("/");
     } catch (error) {
-      // if your API returned { detail: "..." }
       const msg = error.response?.data?.detail || error.message;
       alert("Login failed: " + msg);
     }

@@ -14,8 +14,11 @@ import {
 } from "@heroicons/react/24/outline";
 import Notification from "../components/Notification";
 import { ExclamationCircleIcon } from "@heroicons/react/24/outline";
+import { ChartBarIcon } from "@heroicons/react/24/solid";
+import { handlePredictionLogic } from "../services/predictHelper";
 
 export default function Dashboard() {
+  const [predictionData, setPredictionData] = useState(null);
   const [consumers, setConsumers] = useState([]);
   const [postcodes, setPostcodes] = useState([]);
   const [records, setRecords] = useState([]);
@@ -31,7 +34,7 @@ export default function Dashboard() {
     if (!localStorage.getItem("access_token")) {
       navigate("/login");
     }
-  }, [navigate]);  
+  }, [navigate]);
 
   // Load consumers once
   useEffect(() => {
@@ -93,6 +96,15 @@ export default function Dashboard() {
     });
   };
 
+  const handlePredict = () => {
+    handlePredictionLogic({
+      records,
+      consumerId: stats.consumerId,
+      setNotification,
+      setPredictionData,
+    });
+  };
+
   // Helper function to aggregate data for charts
   const aggregateData = (records, period) => {
     const result = { labels: [], values: [] };
@@ -141,7 +153,9 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen flex">
-      <div className={`pl-64 flex flex-col w-full bg-gray-100 transition-colors duration-300 dark:bg-gray-900`}>
+      <div
+        className={`pl-64 flex flex-col w-full bg-gray-100 transition-colors duration-300 dark:bg-gray-900`}
+      >
         <Sidebar />
         <div className="flex-1 flex flex-col">
           <Header />
@@ -161,7 +175,9 @@ export default function Dashboard() {
               postcodes={postcodes}
               onApply={handleApply}
               onReset={handleReset}
+              onPredict={handlePredict} 
             />
+            
 
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -186,12 +202,19 @@ export default function Dashboard() {
                 value={stats.endDate}
               />
             </div>
-
             {/* Charts */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
               <ChartCard title="Daily Consumption" data={dailyData} />
               <ChartCard title="Monthly Consumption" data={monthlyData} />
               <ChartCard title="Yearly Consumption" data={yearlyData} />
+              {predictionData && (
+                <div className="mt-6">
+                  <ChartCard
+                    title="Predicted Weekly Consumption"
+                    data={predictionData}
+                  />
+                </div>
+              )}
             </div>
           </main>
         </div>
