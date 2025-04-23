@@ -24,7 +24,7 @@ ChartJS.register(
   zoomPlugin
 );
 
-const ChartCard = ({ title, data }) => {
+const ChartCard = ({ title, data, fullWidth = false }) => {
   const { darkMode } = useTheme();
   const chartRef = useRef(null);
 
@@ -80,13 +80,13 @@ const ChartCard = ({ title, data }) => {
         pointBackgroundColor: darkMode ? "#1E90FF" : "#0070f3",
         pointBorderColor: darkMode ? "#fff" : "#000",
         borderWidth: 2,
-        pointRadius: title === "Daily Consumption" ? 0 : 3,  // Make points smaller for daily chart
-        pointHoverRadius: title === "Daily Consumption" ? 4 : 6,  // Smaller hover radius for daily chart
+        pointRadius: title === "Daily Consumption" ? 0 : 3, // Make points smaller for daily chart
+        pointHoverRadius: title === "Daily Consumption" ? 4 : 6, // Smaller hover radius for daily chart
         tension: 0.4,
       },
     ],
   };
-  
+
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -144,12 +144,21 @@ const ChartCard = ({ title, data }) => {
     },
   };
 
+  // swap in the right classes based on `fullWidth`
+  const wrapperClasses = fullWidth
+    ? "rounded-xl shadow-lg p-6 w-full h-100 transition-colors duration-300 outline-none"
+    : "rounded-xl shadow-lg p-4 flex flex-col items-center justify-center min-w-[220px] max-w-[350px] min-h-[260px] max-h-[320px] w-full h-full transition-colors duration-300 outline-none";
+
+  const chartContainerClasses = fullWidth
+    ? "w-full h-full"
+    : "w-full h-48 md:h-40 lg:h-48 xl:h-56";
+    
   return (
     <div
       tabIndex={0}
       ref={wrapperRef}
       onBlur={handleBlur}
-      className={`rounded-xl shadow-lg p-4 flex flex-col items-center justify-center min-w-[220px] max-w-[350px] min-h-[260px] max-h-[320px] w-full h-full transition-colors duration-300 outline-none`}
+      className={wrapperClasses}
       style={{
         backgroundColor: darkMode
           ? "rgba(30, 30, 30, 0.8)"
@@ -162,7 +171,7 @@ const ChartCard = ({ title, data }) => {
       >
         {title}
       </h3>
-      <div className="w-full h-48 md:h-40 lg:h-48 xl:h-56">
+      <div className={chartContainerClasses}>
         <Line
           data={chartData}
           options={chartOptions}

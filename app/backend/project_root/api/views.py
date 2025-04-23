@@ -5,6 +5,9 @@ from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import render
 from django.contrib.auth import authenticate
 from rest_framework.permissions import AllowAny
+import torch
+import os
+from core.models import TimeSeriesTransformer
 from energy_data.models import Consumer, EnergyRecord, SuperUser
 from .serializers import (
     ConsumerSerializer, 
@@ -18,6 +21,32 @@ import pandas as pd
 from dateutil.parser import parse
 import io
 from datetime import datetime
+
+# load once at import time
+MODEL_PATH = os.path.join(os.path.dirname(__file__), 'models', 'transformer_energy_forecast_best.pt')
+
+# These values must exactly match how you trained:
+FEATURE_SIZE       = 3      # ['consumption_daily_normalized','is_holiday_or_weekend','saison']
+D_MODEL            = 64
+NHEAD              = 4
+NUM_ENCODER_LAYERS = 2
+DIM_FEEDFORWARD    = 128
+DROPOUT            = 0.1
+FORECAST_HORIZON   = 7
+
+
+MODEL = TimeSeriesTransformer(
+    feature_size=FEATURE_SIZE,
+    d_model=D_MODEL,
+    nhead=NHEAD,
+    num_encoder_layers=NUM_ENCODER_LAYERS,
+    dim_feedforward=DIM_FEEDFORWARD,
+    dropout=DROPOUT,
+    forecast_horizon=FORECAST_HORIZON,
+)
+MODEL.load_state_dict(torch.load(MODEL_PATH, map_location="cpu"))
+MODEL.eval()
+
 
 def create_consumer(consumer_id, postcode):
     collection = Consumer.get_collection()
@@ -158,23 +187,19 @@ class PredictConsumptionView(APIView):
 
     def post(self, request, *args, **kwargs):
         """
-        Expects JSON payload:
-            { "consumerId": 3, "month": "2013-06" }
-        Returns:
-            { "predicted_consumption": <float> }
+        Expects JSON payload: { "consumerId": 3, "month": "2013-06" }
+        Returns: {"predicted_consumption": [<float>, …, <float>]} 7 values
         """
-        consumer_id = request.data.get("consumerId")
-        month_str  = request.data.get("month")     # e.g. "2013-06"
-
-        # --- Validate inputs ---
+        # --- Validate & parse inputs ---
         try:
-            consumer_id = int(consumer_id)
+            consumer_id = int(request.data.get("consumerId"))
         except (TypeError, ValueError):
             return Response(
                 {"error": "Invalid or missing consumerId (must be integer)."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        month_str = request.data.get("month")
         if not month_str or not isinstance(month_str, str):
             return Response(
                 {"error": "Missing month. Use YYYY-MM format."},
@@ -184,23 +209,19 @@ class PredictConsumptionView(APIView):
         try:
             year, mon = map(int, month_str.split("-"))
             start_date = datetime(year, mon, 1)
-            # For end date, go to first of next month
-            if mon == 12:
-                end_date = datetime(year + 1, 1, 1)
-            else:
-                end_date = datetime(year, mon + 1, 1)
+            end_date = datetime(year + (mon == 12), (mon % 12) + 1, 1)
         except Exception:
             return Response(
                 {"error": "month must be in YYYY-MM format."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # --- Fetch that month’s records for this consumer ---
+        # --- Fetch that month’s records for this consumer, ordered by date ---
         month_records = EnergyRecord.objects.filter(
             Customer=consumer_id,
             date__gte=start_date,
             date__lt=end_date
-        )
+        ).order_by('date')
 
         if not month_records:
             return Response(
@@ -208,16 +229,34 @@ class PredictConsumptionView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # --- TODO: plug in your real ML/model here ---
-        # For demo, we’ll just take the average daily consumption × 7:
-        values = [r.consumption for r in month_records]
-        avg_daily = sum(values) / len(values)
-        predicted_week = avg_daily * 7
+        # --- Build the input tensor (last 30 days) ---
+        values = []
+        for r in month_records:
+            # Example: Assuming r.consumption, r.is_holiday_or_weekend, r.saison are available
+            consumption = r.consumption
+            is_holiday_or_weekend = 1 if r.is_holiday_or_weekend else 0  # 1 or 0
+            saison = r.saison  # Assuming it's already a numerical value
+            values.append([consumption, is_holiday_or_weekend, saison])
+
+        if len(values) < 30:
+            return Response(
+                {"error": "Insufficient data (need at least 30 daily records)."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Ensure tensor is of shape (1, 30, 3) where 30 = seq_len, 3 = features
+        input_tensor = torch.tensor([values[-30:]], dtype=torch.float32)
+
+        # --- Run inference ---
+        with torch.no_grad():
+            output = MODEL(input_tensor)  # Assuming MODEL expects shape (1, 30, 3)
+            weekly_forecast = output.squeeze(0).tolist()
 
         return Response(
-            {"predicted_consumption": round(predicted_week, 2)},
+            {"predicted_consumption": weekly_forecast},
             status=status.HTTP_200_OK
         )
+        
 class RegisterView(generics.CreateAPIView):
     serializer_class = SuperUserSerializer
     permission_classes = [AllowAny]

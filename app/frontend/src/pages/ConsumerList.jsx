@@ -68,7 +68,6 @@ const ConsumerList = () => {
                       <TableRow>
                         <TableCell sx={{ color: "white", fontWeight: 600 }}>Consumer ID</TableCell>
                         <TableCell sx={{ color: "white", fontWeight: 600 }}>Postcode</TableCell>
-                        <TableCell sx={{ color: "white", fontWeight: 600 }}>Energy Status</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -91,11 +90,6 @@ const ConsumerList = () => {
                             <TableRow key={consumer.Customer}>
                               <TableCell>{consumer.Customer}</TableCell>
                               <TableCell>{consumer.Postcode}</TableCell>
-                              <TableCell>
-                                <span className={`px-2 py-1 rounded-full text-white ${energyStatus === "Low Usage" ? "bg-green-500" : energyStatus === "Medium Usage" ? "bg-orange-500" : "bg-red-500"}`}>
-                                  {energyStatus}
-                                </span>
-                              </TableCell>
                             </TableRow>
                           );
                         })

@@ -53,12 +53,13 @@ export default function Dashboard() {
 
   // Apply filters
   const handleApply = ({ consumerId, postcode, startDate, endDate }) => {
+    setPredictionData(null); // 🧼 Clear prediction when filters are applied
     console.log("Applying filters:", {
       consumerId,
       postcode,
       startDate,
       endDate,
-    }); // Debugging filter values
+    });
     fetchRecords({ consumerId, postcode, startDate, endDate }).then((data) => {
       if (data.length === 0) {
         setNotification("The consumer ID or postcode does not exist.");
@@ -74,9 +75,11 @@ export default function Dashboard() {
       }
     });
   };
+  
 
   // Reset filters
   const handleReset = () => {
+    setPredictionData(null); // 🧼 Clear prediction on reset
     setRecords([]);
     setStats({
       consumerId: "All",
@@ -95,6 +98,7 @@ export default function Dashboard() {
       });
     });
   };
+  
 
   const handlePredict = () => {
     handlePredictionLogic({
@@ -202,18 +206,23 @@ export default function Dashboard() {
               />
             </div>
             {/* Charts */}
+
+            {/* Prediction chart — full width */}
+            {predictionData && (
+              <div className="mb-6">
+                <ChartCard
+                  title="Predicted Weekly Consumption"
+                  data={predictionData}
+                  fullWidth      
+                />
+              </div>
+            )}
+
+            {/* The rest of your charts in a 3-col grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
               <ChartCard title="Daily Consumption" data={dailyData} />
               <ChartCard title="Monthly Consumption" data={monthlyData} />
               <ChartCard title="Yearly Consumption" data={yearlyData} />
-              {predictionData && (
-                <div className="mt-6">
-                  <ChartCard
-                    title="Predicted Weekly Consumption"
-                    data={predictionData}
-                  />
-                </div>
-              )}
             </div>
           </main>
         </div>

@@ -2,35 +2,22 @@
 import { predictConsumption } from "./api";
 
 export const handlePredictionLogic = async ({
-  records,
+  /*records,*/
   consumerId,
   setNotification,
   setPredictionData,
 }) => {
-  if (!consumerId) {
+  if (!consumerId || consumerId === "All") {
     return setNotification("You must select a consumer before predicting.");
   }
 
-  // get June of the last year in your dataset:
-  const targetMonth = "2013-06";  
-  const [year, month] = targetMonth.split("-").map(Number);
-
-  const juneData = records.filter((r) => {
-    const d = new Date(r.date);
-    return (
-      Number(r.Customer) === Number(consumerId) &&
-      d.getFullYear() === year &&
-      d.getMonth() + 1 === month
-    );
-  });
-
-  if (!juneData.length) {
-    return setNotification(`No data available for ${targetMonth} to predict.`);
-  }
+  const month = "2013-06";
 
   try {
-    const prediction = await predictConsumption({ consumerId, month: targetMonth });
-    setPredictionData(prediction);
+    const forecast = await predictConsumption({ consumerId, month });
+    // build simple Day-labels for your 7-day chart
+    const labels = forecast.map((_, i) => `Day ${i + 1}`);
+    setPredictionData({ labels, values: forecast });
     setNotification(null);
   } catch (err) {
     setNotification(err.message);

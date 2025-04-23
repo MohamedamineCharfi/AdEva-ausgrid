@@ -51,12 +51,11 @@ export const fetchRecords = ({ consumerId, postcode, startDate, endDate } = {}) 
 };
 
 export const predictConsumption = async ({ consumerId, month }) => {
-  const id = parseInt(consumerId, 10);
-  const { data } = await API.post(
-    "/predict/", 
-    { consumerId: id, month }
-  );
-  // expect { predictions: { labels: [...], values: [...] } }
-  console.log("Prediction response: ", data);
-  return data.predictions;
+  
+  const { data } = await API.post("/predict/", { consumerId, month });
+  // backend returns { "predicted_consumption": [n1, n2, …, n7] }
+  if (!Array.isArray(data.predicted_consumption)) {
+    throw new Error(data.error || "Invalid prediction response");
+  }
+  return data.predicted_consumption;
 };
