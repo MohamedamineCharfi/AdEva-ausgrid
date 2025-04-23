@@ -1,10 +1,5 @@
 /my-chatbot
 /venv
 /venv310
-/app/AdEva_final
 /modeling
 /data
-/app/backend/project_root/.dockerignore
-/app/backend/project_root/Dockerfile
-/app/frontend/.dockerignore
-/app/frontend/Dockerfile
