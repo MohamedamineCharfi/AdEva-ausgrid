@@ -153,21 +153,71 @@ class EnergyRecordBulkUploadView(APIView):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class PredictEnergyConsumptionView(APIView):
+class PredictConsumptionView(APIView):
     permission_classes = [IsAuthenticated]
-    
-    def post(self, request, *args, **kwargs):
-        try:
-            input_data = request.data
-            prediction = {
-                'predicted_consumption': 0.5,
-                'confidence': 0.95,
-                'input_data': input_data
-            }
-            return Response(prediction, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+    def post(self, request, *args, **kwargs):
+        """
+        Expects JSON payload:
+            { "consumerId": 3, "month": "2013-06" }
+        Returns:
+            { "predicted_consumption": <float> }
+        """
+        consumer_id = request.data.get("consumerId")
+        month_str  = request.data.get("month")     # e.g. "2013-06"
+
+        # --- Validate inputs ---
+        try:
+            consumer_id = int(consumer_id)
+        except (TypeError, ValueError):
+            return Response(
+                {"error": "Invalid or missing consumerId (must be integer)."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not month_str or not isinstance(month_str, str):
+            return Response(
+                {"error": "Missing month. Use YYYY-MM format."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            year, mon = map(int, month_str.split("-"))
+            start_date = datetime(year, mon, 1)
+            # For end date, go to first of next month
+            if mon == 12:
+                end_date = datetime(year + 1, 1, 1)
+            else:
+                end_date = datetime(year, mon + 1, 1)
+        except Exception:
+            return Response(
+                {"error": "month must be in YYYY-MM format."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --- Fetch that month’s records for this consumer ---
+        month_records = EnergyRecord.objects.filter(
+            Customer=consumer_id,
+            date__gte=start_date,
+            date__lt=end_date
+        )
+
+        if not month_records:
+            return Response(
+                {"error": f"No data for consumer {consumer_id} in {month_str}."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # --- TODO: plug in your real ML/model here ---
+        # For demo, we’ll just take the average daily consumption × 7:
+        values = [r.consumption for r in month_records]
+        avg_daily = sum(values) / len(values)
+        predicted_week = avg_daily * 7
+
+        return Response(
+            {"predicted_consumption": round(predicted_week, 2)},
+            status=status.HTTP_200_OK
+        )
 class RegisterView(generics.CreateAPIView):
     serializer_class = SuperUserSerializer
     permission_classes = [AllowAny]

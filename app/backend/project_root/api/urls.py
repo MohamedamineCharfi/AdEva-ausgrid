@@ -9,7 +9,7 @@ from .views import (
     ConsumerListView,
     EnergyRecordListView,
     EnergyRecordBulkUploadView,
-    PredictEnergyConsumptionView,
+    PredictConsumptionView,
     MyTokenObtainPairView  # Ensure this is imported
 )
 
@@ -40,7 +40,7 @@ urlpatterns = [
     path('consumers/', ConsumerListView.as_view(), name='consumer-list'),
     path('records/', EnergyRecordListView.as_view(), name='record-list'),
     path('upload/', EnergyRecordBulkUploadView.as_view(), name='bulk-upload'),
-    path('predict/', PredictEnergyConsumptionView.as_view(), name='predict'),
+    path('predict/', PredictConsumptionView.as_view(), name='predict'),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),  # Added token endpoint
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),  # Added refresh endpoint
     

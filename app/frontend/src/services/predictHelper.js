@@ -1,3 +1,4 @@
+// src/services/predictHelper.js
 import { predictConsumption } from "./api";
 
 export const handlePredictionLogic = async ({
@@ -6,29 +7,32 @@ export const handlePredictionLogic = async ({
   setNotification,
   setPredictionData,
 }) => {
-  // Fixed range: June 1, 2013 to June 30, 2013
-  const startDate = new Date("2013-06-01");
-  const endDate = new Date("2013-06-30");
+  if (!consumerId) {
+    return setNotification("You must select a consumer before predicting.");
+  }
 
-  const june2013Data = records.filter((record) => {
-    const recordDate = new Date(record.date);
+  // get June of the last year in your dataset:
+  const targetMonth = "2013-06";  
+  const [year, month] = targetMonth.split("-").map(Number);
+
+  const juneData = records.filter((r) => {
+    const d = new Date(r.date);
     return (
-      record.ConsumerId === consumerId &&
-      recordDate >= startDate &&
-      recordDate <= endDate
+      Number(r.Customer) === Number(consumerId) &&
+      d.getFullYear() === year &&
+      d.getMonth() + 1 === month
     );
   });
 
-  if (june2013Data.length === 0) {
-    setNotification("No data available for June 2013 to predict.");
-    return;
+  if (!juneData.length) {
+    return setNotification(`No data available for ${targetMonth} to predict.`);
   }
 
   try {
-    const prediction = await predictConsumption(june2013Data);
+    const prediction = await predictConsumption({ consumerId, month: targetMonth });
     setPredictionData(prediction);
     setNotification(null);
-  } catch (error) {
-    setNotification(error.message);
+  } catch (err) {
+    setNotification(err.message);
   }
 };

@@ -48,7 +48,6 @@ INSTALLED_APPS = [
     'api',
     'corsheaders',
     'energy_data',
-    'users',  
 ]
 
 REST_FRAMEWORK = {

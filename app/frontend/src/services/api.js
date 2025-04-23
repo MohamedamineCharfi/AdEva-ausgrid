@@ -50,24 +50,13 @@ export const fetchRecords = ({ consumerId, postcode, startDate, endDate } = {}) 
   }).then((res) => res.data);
 };
 
-export const predictConsumption = async (records) => {
-  try {
-    const response = await fetch("/api/predict/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ records }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data?.error || "Prediction failed.");
-    }
-
-    return data.predictions;
-  } catch (error) {
-    throw new Error(error.message || "Server error during prediction.");
-  }
+export const predictConsumption = async ({ consumerId, month }) => {
+  const id = parseInt(consumerId, 10);
+  const { data } = await API.post(
+    "/predict/", 
+    { consumerId: id, month }
+  );
+  // expect { predictions: { labels: [...], values: [...] } }
+  console.log("Prediction response: ", data);
+  return data.predictions;
 };
